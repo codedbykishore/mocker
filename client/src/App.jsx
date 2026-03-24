@@ -1,0 +1,45 @@
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import Landing from './pages/Landing'
+import Login from './pages/Login'
+import Signup from './pages/Signup'
+import CreatorDashboard from './pages/CreatorDashboard'
+import TestBuilder from './pages/TestBuilder'
+import ExamPage from './pages/ExamPage'
+import ResultPage from './pages/ResultPage'
+import AnalyticsDashboard from './pages/AnalyticsDashboard'
+import ProtectedRoute from './components/common/ProtectedRoute'
+import './index.css'
+
+function App() {
+  return (
+    <Router>
+      <div className="min-h-screen font-sans font-medium text-slate-900 overflow-x-hidden">
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          
+          <Route path="/dashboard" element={
+            <ProtectedRoute role="creator"><CreatorDashboard /></ProtectedRoute>
+          } />
+          <Route path="/builder/:testId?" element={
+            <ProtectedRoute role="creator"><TestBuilder /></ProtectedRoute>
+          } />
+          <Route path="/analytics/:testId" element={
+           <ProtectedRoute role="creator"><AnalyticsDashboard /></ProtectedRoute>
+          } />
+
+          <Route path="/exam/:uniqueLink" element={
+            <ProtectedRoute><ExamPage /></ProtectedRoute>
+          } />
+          <Route path="/result/:sessionId" element={
+            <ProtectedRoute><ResultPage /></ProtectedRoute>
+          } />
+        </Routes>
+      </div>
+    </Router>
+  )
+}
+
+export default App
