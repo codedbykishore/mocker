@@ -27,4 +27,12 @@
   .glass {
     @apply bg-white/80 backdrop-blur-md border border-slate-200;
   }
+
+  @keyframes pulse-subtle {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+  .animate-pulse-subtle {
+    animation: pulse-subtle 4s ease-in-out infinite;
+  }
 }
