@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (role) => {
     try {
       const result = await signInWithPopup(firebaseAuth, googleProvider);
       const userEmail = result.user.email;
@@ -61,7 +61,8 @@ export const AuthProvider = ({ children }) => {
       
       const res = await axios.post('http://localhost:5000/api/auth/google', {
         email: userEmail,
-        name: userName
+        name: userName,
+        role: role
       });
       
       localStorage.setItem('token', res.data.token);

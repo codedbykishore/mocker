@@ -66,7 +66,7 @@ const getMe = async (req, res) => {
 };
 
 const googleAuth = async (req, res) => {
-  const { email, name } = req.body;
+  const { email, name, role } = req.body;
   try {
     const querySnapshot = await usersCollection.where('email', '==', email).get();
     let userData;
@@ -78,7 +78,7 @@ const googleAuth = async (req, res) => {
         name, 
         email, 
         password: dummyPassword, 
-        role: 'candidate',
+        role: role || 'candidate',
         createdAt: new Date().toISOString()
       });
       userId = userDoc.id;

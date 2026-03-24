@@ -1,6 +1,8 @@
 import React from 'react'
 import Navbar from '../components/landing/Navbar'
 import Hero from '../components/landing/Hero'
+import Pricing from '../components/landing/Pricing'
+import About from '../components/landing/About'
 
 const Features = () => {
   const items = [
@@ -31,6 +33,8 @@ const Landing = () => {
       <Navbar />
       <Hero />
       <Features />
+      <Pricing />
+      <About />
     </div>
   )
 }

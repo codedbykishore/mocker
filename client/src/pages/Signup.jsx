@@ -32,9 +32,9 @@ const Signup = () => {
 
     const handleGoogleLogin = async () => {
         try {
-            const data = await loginWithGoogle()
+            const data = await loginWithGoogle(formData.role)
             if (data.user?.role === 'creator') navigate('/dashboard')
-            else navigate('/') 
+            else navigate('/candidate-dashboard') 
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Google Signup failed')
         }

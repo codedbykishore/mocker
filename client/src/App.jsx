@@ -8,6 +8,7 @@ import TestBuilder from './pages/TestBuilder'
 import ExamPage from './pages/ExamPage'
 import ResultPage from './pages/ResultPage'
 import AnalyticsDashboard from './pages/AnalyticsDashboard'
+import CandidateDashboard from './pages/CandidateDashboard'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import './index.css'
 
@@ -35,6 +36,9 @@ function App() {
           } />
           <Route path="/result/:sessionId" element={
             <ProtectedRoute><ResultPage /></ProtectedRoute>
+          } />
+          <Route path="/candidate-dashboard" element={
+            <ProtectedRoute role="candidate"><CandidateDashboard /></ProtectedRoute>
           } />
         </Routes>
       </div>

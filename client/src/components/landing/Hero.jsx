@@ -1,8 +1,16 @@
 import React from 'react'
 import { ArrowRight, Box } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 
 const Hero = () => {
+  const { user } = useAuth();
+  
+  const getStartedPath = () => {
+    if (!user) return '/signup';
+    return user.role === 'creator' ? '/dashboard' : '/candidate-dashboard';
+  };
+
   return (
     <section className="pt-24 pb-12 flex flex-col items-center text-center px-4 overflow-hidden relative">
       {/* Background glow effects */}
@@ -19,8 +27,8 @@ const Hero = () => {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-          <Link to="/signup" className="btn-primary py-4 px-10 text-lg flex items-center gap-2 shadow-2xl shadow-slate-300">
-            Start Building Now <ArrowRight size={20} strokeWidth={3} />
+          <Link to={getStartedPath()} className="btn-primary py-4 px-10 text-lg flex items-center gap-2 shadow-2xl shadow-slate-300">
+            {user ? 'Go to Dashboard' : 'Start Building Now'} <ArrowRight size={20} strokeWidth={3} />
           </Link>
           <button className="btn-secondary py-4 px-10 text-lg flex items-center gap-2 font-semibold">
              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
