@@ -1,27 +1,37 @@
-const Test = require('../models/Test');
-const Question = require('../models/Question');
 const crypto = require('crypto');
+const { db } = require('../firebase.admin');
+
+const testsCollection = db.collection('tests');
+const questionsCollection = db.collection('questions');
 
 const createTest = async (req, res) => {
     const { title, description, duration, maxParticipants, negativeMark, questions } = req.body;
     try {
-        const test = await Test.create({
+        const testData = {
             creatorId: req.user.id,
             title,
             description,
             duration,
             maxParticipants,
             negativeMark,
-            uniqueLink: crypto.randomUUID().slice(0, 8)
-        });
+            uniqueLink: crypto.randomUUID().slice(0, 8),
+            status: 'draft',
+            createdAt: new Date().toISOString()
+        };
+        const testDoc = await testsCollection.add(testData);
 
         let createdQuestions = [];
         if (questions && questions.length > 0) {
-            const questionsWithTestId = questions.map(q => ({ ...q, testId: test._id }));
-            createdQuestions = await Question.insertMany(questionsWithTestId);
+            const batch = db.batch();
+            questions.forEach(q => {
+                const qDoc = questionsCollection.doc();
+                batch.set(qDoc, { ...q, testId: testDoc.id });
+                createdQuestions.push({ _id: qDoc.id, ...q, testId: testDoc.id });
+            });
+            await batch.commit();
         }
 
-        res.status(201).json({ test, questions: createdQuestions });
+        res.status(201).json({ test: { _id: testDoc.id, ...testData }, questions: createdQuestions });
     } catch (err) {
         console.error('Create test error:', err);
         res.status(500).json({ message: 'Error creating test', error: err.message });
@@ -30,7 +40,8 @@ const createTest = async (req, res) => {
 
 const getTests = async (req, res) => {
     try {
-        const tests = await Test.find({ creatorId: req.user.id }).sort({ createdAt: -1 });
+        const querySnapshot = await testsCollection.where('creatorId', '==', req.user.id).orderBy('createdAt', 'desc').get();
+        const tests = querySnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
         res.status(200).json(tests);
     } catch (err) {
         res.status(500).json({ message: 'Error fetching tests', error: err.message });
@@ -39,9 +50,12 @@ const getTests = async (req, res) => {
 
 const getTest = async (req, res) => {
     try {
-        const test = await Test.findById(req.params.id);
-        const questions = await Question.find({ testId: test._id }).sort({ order: 1 });
-        res.status(200).json({ test, questions });
+        const testDoc = await testsCollection.doc(req.params.id).get();
+        if (!testDoc.exists) return res.status(404).json({ message: 'Test not found' });
+        
+        const questionsSnapshot = await questionsCollection.where('testId', '==', req.params.id).orderBy('order', 'asc').get();
+        const questions = questionsSnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+        res.status(200).json({ test: { _id: testDoc.id, ...testDoc.data() }, questions });
     } catch (err) {
         res.status(500).json({ message: 'Error fetching test', error: err.message });
     }
@@ -50,25 +64,26 @@ const getTest = async (req, res) => {
 const updateTest = async (req, res) => {
     const { questions, ...testData } = req.body;
     try {
-        const test = await Test.findByIdAndUpdate(req.params.id, testData, { new: true });
+        await testsCollection.doc(req.params.id).update(testData);
         
         let updatedQuestions = [];
-        // Always sync questions if provided in the body
         if (questions) {
-            console.log(`Syncing ${questions.length} questions for test ${req.params.id}`);
-            await Question.deleteMany({ testId: req.params.id });
+            // Firestore doesn't have deleteMany by query easily without a loop or batch
+            const oldQuestionsSnapshot = await questionsCollection.where('testId', '==', req.params.id).get();
+            const batch = db.batch();
+            oldQuestionsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+            
             if (questions.length > 0) {
-                // Ensure no existing _ids conflict and map to correct testId
-                const questionsToInsert = questions.map(({ _id, ...q }) => ({ 
-                    ...q, 
-                    testId: req.params.id 
-                }));
-                updatedQuestions = await Question.insertMany(questionsToInsert);
-                console.log(`Successfully inserted ${updatedQuestions.length} questions.`);
+                questions.forEach(q => {
+                    const qDoc = questionsCollection.doc();
+                    const { id, _id, ...cleanQ } = q; // remove old ids
+                    batch.set(qDoc, { ...cleanQ, testId: req.params.id });
+                    updatedQuestions.push({ _id: qDoc.id, ...cleanQ, testId: req.params.id });
+                });
             }
+            await batch.commit();
         }
-
-        res.status(200).json({ test, questions: updatedQuestions });
+        res.status(200).json({ test: { _id: req.params.id, ...testData }, questions: updatedQuestions });
     } catch (err) {
         console.error('Update test error:', err);
         res.status(500).json({ message: 'Error updating test and questions', error: err.message });
@@ -77,8 +92,8 @@ const updateTest = async (req, res) => {
 
 const publishTest = async (req, res) => {
     try {
-        const test = await Test.findByIdAndUpdate(req.params.id, { status: 'published', publishedAt: new Date() }, { new: true });
-        res.status(200).json(test);
+        await testsCollection.doc(req.params.id).update({ status: 'published', publishedAt: new Date().toISOString() });
+        res.status(200).json({ _id: req.params.id, status: 'published' });
     } catch (err) {
         res.status(500).json({ message: 'Error publishing test', error: err.message });
     }
@@ -86,10 +101,13 @@ const publishTest = async (req, res) => {
 
 const getTestByLink = async (req, res) => {
     try {
-        const test = await Test.findOne({ uniqueLink: req.params.link, status: 'published' });
-        if (!test) return res.status(404).json({ message: 'Exam not found or not published' });
-        const questions = await Question.find({ testId: test._id }).sort({ order: 1 });
-        res.status(200).json({ test, questions });
+        const querySnapshot = await testsCollection.where('uniqueLink', '==', req.params.link).where('status', '==', 'published').limit(1).get();
+        if (querySnapshot.empty) return res.status(404).json({ message: 'Exam not found or not published' });
+        
+        const testDoc = querySnapshot.docs[0];
+        const questionsSnapshot = await questionsCollection.where('testId', '==', testDoc.id).orderBy('order', 'asc').get();
+        const questions = questionsSnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+        res.status(200).json({ test: { _id: testDoc.id, ...testDoc.data() }, questions });
     } catch (err) {
         res.status(500).json({ message: 'Error fetching test', error: err.message });
     }

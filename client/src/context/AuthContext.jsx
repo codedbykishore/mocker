@@ -1,5 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { signInWithPopup } from 'firebase/auth';
+import { auth as firebaseAuth, googleProvider } from '../config/firebase';
 
 const AuthContext = createContext();
 
@@ -51,8 +53,29 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const loginWithGoogle = async () => {
+    try {
+      const result = await signInWithPopup(firebaseAuth, googleProvider);
+      const userEmail = result.user.email;
+      const userName = result.user.displayName;
+      
+      const res = await axios.post('http://localhost:5000/api/auth/google', {
+        email: userEmail,
+        name: userName
+      });
+      
+      localStorage.setItem('token', res.data.token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+      setUser(res.data.user);
+      return res.data;
+    } catch (error) {
+      console.error('Google Auth Error:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, loginWithGoogle, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,23 +1,25 @@
-const Session = require('../models/Session');
-const Test = require('../models/Test');
-const Question = require('../models/Question');
-const Response = require('../models/Response');
-const Result = require('../models/Result');
-const Violation = require('../models/Violation');
+const { db, admin } = require('../firebase.admin');
+
+const sessionsCollection = db.collection('sessions');
+const testsCollection = db.collection('tests');
+const questionsCollection = db.collection('questions');
+const resultsCollection = db.collection('results');
 
 const startSession = async (req, res) => {
     const { testId } = req.body;
     try {
-        const test = await Test.findById(testId);
-        if (!test) return res.status(404).json({ message: 'Test not found' });
+        const testDoc = await testsCollection.doc(testId).get();
+        if (!testDoc.exists) return res.status(404).json({ message: 'Test not found' });
 
-        const session = await Session.create({
+        const sessionData = {
             testId,
             candidateId: req.user.id,
-            startTime: new Date(),
-            status: 'active'
-        });
-        res.status(201).json({ session });
+            startTime: new Date().toISOString(),
+            status: 'active',
+            violations: 0
+        };
+        const sessionDoc = await sessionsCollection.add(sessionData);
+        res.status(201).json({ session: { _id: sessionDoc.id, ...sessionData } });
     } catch (err) {
         res.status(500).json({ message: 'Error starting session', error: err.message });
     }
@@ -27,8 +29,9 @@ const logViolation = async (req, res) => {
     const { sessionId } = req.params;
     const { type, count } = req.body;
     try {
-        await Session.findByIdAndUpdate(sessionId, { $inc: { violations: 1 } });
-        // Optionally create a Violation detail entry
+        await sessionsCollection.doc(sessionId).update({
+            violations: admin.firestore.FieldValue.increment(1)
+        });
         res.status(200).json({ success: true });
     } catch (err) {
         res.status(500).json({ message: 'Error logging violation', error: err.message });
@@ -39,24 +42,30 @@ const submitExam = async (req, res) => {
     const { sessionId } = req.params;
     const { answers } = req.body; // Map: { questionIdx: 'A' }
     try {
-        const session = await Session.findByIdAndUpdate(sessionId, { status: 'submitted', endTime: new Date() }, { new: true });
-        const questions = await Question.find({ testId: session.testId }).sort({ order: 1 });
+        const endTime = new Date().toISOString();
+        await sessionsCollection.doc(sessionId).update({ status: 'submitted', endTime });
+        
+        const sessionDoc = await sessionsCollection.doc(sessionId).get();
+        const session = sessionDoc.data();
+        const questionsSnapshot = await questionsCollection.where('testId', '==', session.testId).orderBy('order', 'asc').get();
+        const questions = questionsSnapshot.docs.map(doc => doc.data());
 
         let totalMarks = 0, scoredMarks = 0;
         let correct = 0, incorrect = 0, attempted = 0;
 
         questions.forEach((q, idx) => {
-            totalMarks += q.marks;
+            const marks = q.marks || 1;
+            totalMarks += marks;
             const selectedOpt = answers[idx];
             
             if (selectedOpt) {
                 attempted += 1;
-                const isCorrect = q.correctAnswers.includes(selectedOpt);
+                const isCorrect = q.correctAnswers && q.correctAnswers.includes(selectedOpt);
                 if (isCorrect) {
-                   scoredMarks += q.marks;
+                   scoredMarks += marks;
                    correct += 1;
                 } else {
-                   scoredMarks -= q.negativeMarks;
+                   scoredMarks -= (q.negativeMarks || 0);
                    incorrect += 1;
                 }
             }
@@ -65,7 +74,7 @@ const submitExam = async (req, res) => {
         const unattempted = questions.length - attempted;
         const accuracy = attempted > 0 ? (correct / attempted * 100).toFixed(2) : 0;
 
-        const result = await Result.create({
+        const resultData = {
             sessionId,
             testId: session.testId,
             candidateId: session.candidateId,
@@ -76,10 +85,11 @@ const submitExam = async (req, res) => {
             correct,
             incorrect,
             accuracy,
-            submittedAt: new Date()
-        });
+            submittedAt: new Date().toISOString()
+        };
+        const resultDoc = await resultsCollection.add(resultData);
 
-        res.status(200).json({ success: true, result });
+        res.status(200).json({ success: true, result: { _id: resultDoc.id, ...resultData } });
     } catch (err) {
         res.status(500).json({ message: 'Error submitting exam', error: err.message });
     }
