@@ -4,6 +4,8 @@ import Hero from '../components/landing/Hero'
 import CompanySlider from '../components/landing/CompanySlider'
 import Pricing from '../components/landing/Pricing'
 import About from '../components/landing/About'
+import Feedback from '../components/landing/Feedback'
+import Footer from '../components/landing/Footer'
 
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
@@ -61,8 +63,10 @@ const Landing = () => {
       <Hero />
       <CompanySlider />
       <Features />
+      <Feedback />
       <Pricing />
       <About />
+      <Footer />
     </div>
   )
 }
