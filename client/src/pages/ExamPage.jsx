@@ -4,6 +4,7 @@ import axios from 'axios'
 import { OMRSheet } from '../components/exam/OMRSheet'
 import { Timer } from '../components/exam/Timer'
 import { useProctor } from '../hooks/useProctor'
+import { SecureQuestionRenderer } from '../components/exam/SecureQuestionRenderer'
 import { ChevronLeft, ChevronRight, Send, AlertCircle, TrendingUp, CheckCircle, XCircle, Shield, Camera } from 'lucide-react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
@@ -205,39 +206,12 @@ export default function ExamPage() {
                                 <p className="text-slate-500 max-w-sm font-medium leading-relaxed italic">The secure environment is being initialized. If this persists, please refresh your browser.</p>
                             </div>
                         ) : (
-                            <div className="max-w-3xl mx-auto w-full">
-                                <div className="flex items-center gap-6 mb-8">
-                                     <div className="px-5 py-1.5 bg-[#0F172A] text-white rounded-full text-[9px] font-black uppercase tracking-[0.2em]">QUESTION {currentQ + 1}</div>
-                                     <div className="h-px flex-1 bg-slate-100"></div>
-                                     <div className="px-3 py-1 bg-slate-50 rounded-xl text-slate-500 font-bold text-[10px] border border-slate-100 uppercase tracking-widest">{currentQuestion?.marks} MARKS</div>
-                                </div>
-
-                                <h2 className="text-2xl md:text-3xl font-black font-outfit text-[#0F172A] mb-8 leading-[1.2] tracking-tight">{currentQuestion?.questionText}</h2>
-                                
-                                 <div className="space-y-3">
-                                    {currentQuestion?.options.map((opt) => (
-                                        <button 
-                                            key={opt.label}
-                                            onClick={() => handleSelect(currentQ, opt.label)}
-                                            className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-300 flex items-center gap-4 md:gap-6 group relative overflow-hidden
-                                                ${answers[currentQ] === opt.label 
-                                                    ? 'bg-[#0F172A] border-[#0F172A] text-white shadow-xl -translate-y-0.5' 
-                                                    : 'bg-white border-slate-100 hover:border-slate-300 text-slate-700 hover:bg-slate-50 active:translate-y-0.5'}`}
-                                        >
-                                            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl border-2 flex items-center justify-center font-black text-xs md:text-sm transition-all duration-300 shrink-0
-                                                ${answers[currentQ] === opt.label ? 'bg-white border-white text-[#0F172A] rotate-12 scale-105' : 'bg-slate-50 border-slate-100 text-slate-400 group-hover:border-slate-900 group-hover:text-slate-900'}`}>
-                                                {opt.label}
-                                            </div>
-                                            <span className="text-base md:text-lg font-bold font-outfit tracking-tight leading-tight">{opt.text}</span>
-                                            
-                                            {/* Selection indicator dot */}
-                                            {answers[currentQ] === opt.label && (
-                                                <div className="absolute right-8 w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_12px_rgba(129,140,248,0.8)]"></div>
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                            <SecureQuestionRenderer 
+                                question={currentQuestion}
+                                questionNumber={currentQ + 1}
+                                selectedOption={answers[currentQ]}
+                                onSelect={(opt) => handleSelect(currentQ, opt)}
+                            />
                         )}
                     </div>
                     
