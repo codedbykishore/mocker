@@ -195,8 +195,9 @@ Root
 
 ## Environment Variables
 
-- Client: Uses `.env` in `/client`
-- Server: Uses `.env` in `/server` or root
+- **Centralized**: Use `.env` in the **root** directory only
+- Do NOT create separate `.env` files in `/client` or `/server`
+- Server reads from root `.env`; client uses hardcoded Firebase config
 - Required variables include JWT_SECRET, Firebase config, MongoDB URI
 
 ---
