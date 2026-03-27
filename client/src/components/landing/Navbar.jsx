@@ -42,6 +42,15 @@ const Navbar = () => {
     }
   }, [isOpen])
   
+  const scrollToSection = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.location.href = `/#${id}`;
+    }
+  };
+
   return (
     <>
       <nav 
@@ -63,28 +72,45 @@ const Navbar = () => {
         {/* Desktop Nav */}
         <div className="hidden lg:flex items-center gap-8">
           <ul className="flex items-center gap-8">
-            <li><Link to="/#pricing" className="text-[15px] font-medium text-slate-600 hover:text-slate-950 transition-colors">Pricing</Link></li>
+            <li>
+              <button 
+                onClick={() => scrollToSection('pricing')} 
+                className="text-[15px] font-medium text-slate-600 hover:text-slate-950 transition-colors"
+              >
+                Pricing
+              </button>
+            </li>
             <li><Link to="/communities" className="text-[15px] font-medium text-slate-600 hover:text-slate-950 transition-colors">Communities</Link></li>
           </ul>
 
           <div className="flex items-center gap-6 ml-4">
             {user ? (
-              <>
+              <div className="flex items-center gap-4">
                 <Link 
                   to={user.role === 'creator' ? '/dashboard' : '/candidate-dashboard'}
-                  className="flex items-center gap-2 px-4 py-1.5 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors group"
+                  className="flex items-center gap-3 pl-1 pr-4 py-1 bg-slate-50/50 border border-slate-100 rounded-full hover:bg-white hover:border-slate-200 hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-300 group"
                 >
-                  <User size={14} className="text-slate-600 group-hover:text-slate-900" />
-                  <span className="text-sm font-bold text-slate-800">{user.name}</span>
+                  <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gradient-to-tr from-slate-900 to-slate-700 flex items-center justify-center text-white text-xs font-black shadow-inner border-2 border-white transition-transform group-hover:scale-105">
+                   {user.photoURL ? (
+                      <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      user.name?.charAt(0).toUpperCase()
+                    )}
+                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[13px] font-black text-slate-900 leading-tight">{user.name}</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-0.5">{user.role}</span>
+                  </div>
                 </Link>
                 <button 
                   onClick={logout} 
-                  className="p-2 text-slate-400 hover:text-red-600 transition-colors" 
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-300 border border-transparent hover:border-red-100" 
                   title="Logout"
                 >
                   <LogOut size={18} />
                 </button>
-              </>
+              </div>
             ) : (
               <>
                 <Link to="/login" className="text-[15px] font-medium text-slate-900 hover:underline">Login</Link>
@@ -111,7 +137,14 @@ const Navbar = () => {
         className="fixed inset-0 bg-white z-[9998] flex flex-col p-8 pt-32 translate-x-full lg:hidden"
       >
         <ul className="space-y-6 mb-12">
-          <li className="mobile-nav-item"><Link onClick={() => setIsOpen(false)} to="/#pricing" className="text-4xl font-black font-outfit text-slate-900">Pricing</Link></li>
+          <li className="mobile-nav-item">
+            <button 
+              onClick={() => { scrollToSection('pricing'); setIsOpen(false); }} 
+              className="text-4xl font-black font-outfit text-slate-900"
+            >
+              Pricing
+            </button>
+          </li>
           <li className="mobile-nav-item"><Link onClick={() => setIsOpen(false)} to="/communities" className="text-4xl font-black font-outfit text-slate-900">Communities</Link></li>
         </ul>
 
