@@ -4,7 +4,7 @@ import { Link as LinkIcon, Edit, BarChart3, Copy } from 'lucide-react'
 
 const TestsTab = ({ tests }) => {
     const copyLink = (link) => {
-        navigator.clipboard.writeText(`http://localhost:5174/exam/${link}`)
+        navigator.clipboard.writeText(`${window.location.origin}/exam/${link}`)
         alert('Exam link copied!')
     }
 

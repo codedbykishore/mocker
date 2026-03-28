@@ -5,7 +5,7 @@ import { Plus, Trash2, Save, Send, ChevronLeft, Layout, Settings, GripVertical, 
 
 const PublishModal = ({ isOpen, onClose, link }) => {
     if (!isOpen) return null
-    const fullLink = `http://localhost:5174/exam/${link}`
+    const fullLink = `${window.location.origin}/exam/${link}`
     
     const copyLink = () => {
         navigator.clipboard.writeText(fullLink)
@@ -81,9 +81,9 @@ const TestBuilder = () => {
             const payload = { ...test, questions }
             let res;
             if (isNew) {
-                res = await axios.post('http://localhost:5000/api/tests', payload)
+                res = await axios.post('http://localhost:5000/api/tests', payload);
                 setIsNew(false);
-                navigate(`/builder/${res.data.test._id}`, { replace: true })
+                navigate(`/builder/${res.data.test._id}`, { replace: true });
             } else {
                 res = await axios.put(`http://localhost:5000/api/tests/${testId}`, payload)
             }
@@ -95,7 +95,7 @@ const TestBuilder = () => {
             }
 
             if (!silent) alert('Progress saved successfully!')
-            return res.data;
+            return res.data.test;
         } catch (err) {
             console.error('Failed to save test', err)
             throw err
