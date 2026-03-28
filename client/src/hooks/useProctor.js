@@ -35,7 +35,7 @@ export const useProctor = ({ onViolation, maxViolations = 2 }) => {
     };
     window.addEventListener('blur', handleBlur);
 
-    // Block keyboard shortcuts
+    // Block keyboard shortcuts (including PrintScreen for instant ban)
     const blockKeys = (e) => {
       if (
         (e.ctrlKey && ['c', 'v', 'x', 'u', 's', 'a'].includes(e.key.toLowerCase())) ||

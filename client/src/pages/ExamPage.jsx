@@ -236,7 +236,7 @@ export default function ExamPage() {
                             Next <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
                         </button>
                     </div>
-                </div>
+                    </div>
 
                 {/* RIGHT: OMR Sheet Section */}
                 <div className="flex-1 flex flex-col gap-6 shrink-0 min-w-full lg:min-w-[380px]">
