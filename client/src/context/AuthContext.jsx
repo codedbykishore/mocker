@@ -110,7 +110,7 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     try {
       const res = await axios.post(`${API}/auth/update-profile`, profileData);
-      setUser({ ...user, profileCompleted: true });
+      setUser({ ...user, ...profileData, profileCompleted: true });
       return res.data;
     } catch (err) {
       console.error('updateProfile error:', err);

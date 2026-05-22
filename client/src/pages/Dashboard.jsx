@@ -8,7 +8,7 @@ const Dashboard = () => {
   const { user } = useAuth();
 
   // Route to the right dashboard based on profile type set during Create Profile
-  const profileType = user?.profileType || user?.profile || 'aspirant';
+  const profileType = user?.profile || (user?.role === 'creator' ? 'academy' : user?.role === 'admin' ? 'admin' : 'aspirant');
 
   if (profileType === 'admin') return <AdminDashboard />;
   if (profileType === 'academy') return <AcademyDashboard />;

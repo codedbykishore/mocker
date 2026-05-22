@@ -85,7 +85,11 @@ const CreateProfile = () => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      await updateProfile(formData);
+      await updateProfile({
+        ...formData,
+        profile: profileType,
+        role: profileType === 'academy' ? 'creator' : 'candidate',
+      });
       setStep('SUCCESS');
     } catch (err) {
       console.error('Submit error:', err);
