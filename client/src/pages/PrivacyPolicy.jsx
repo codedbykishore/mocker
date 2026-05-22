@@ -12,10 +12,9 @@ const PrivacyPolicy = () => {
     const signupData = location.state?.signupData
     const pendingEmail = signupData?.email || ''
 
-    const [accepted, setAccepted]     = useState(false)
-    const [loading, setLoading]       = useState(false)
-    const [sent, setSent]             = useState(false)
-    const [error, setError]           = useState(null)
+    const [accepted, setAccepted]       = useState(false)
+    const [loading, setLoading]         = useState(false)
+    const [error, setError]             = useState(null)
     const [scrolledEnd, setScrolledEnd] = useState(false)
 
     const cardRef     = useRef(null)
@@ -43,88 +42,14 @@ const PrivacyPolicy = () => {
         setLoading(true)
         setError(null)
         try {
-            // Finalize registration
-            await signup(signupData)
-            setSent(true)
+            const res = await signup(signupData)
+            navigate(`/verify-otp?email=${encodeURIComponent(res.email || pendingEmail)}`)
         } catch (err) {
             const msg = err.response?.data?.message || 'Registration failed. Please try again.'
             setError(msg)
         } finally {
             setLoading(false)
         }
-    }
-
-    if (sent) {
-        return (
-            <div className="min-h-screen bg-slate-100 flex items-center justify-center font-outfit p-6">
-                <div ref={cardRef} className="bg-white rounded-[2rem] shadow-2xl p-12 max-w-md w-full text-center border border-white/50">
-                    <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <CheckCircle2 size={40} className="text-green-500" />
-                    </div>
-                    <h1 className="text-2xl font-black text-slate-900 mb-2">Verify Your Email</h1>
-                    <p className="text-slate-500 text-sm leading-relaxed mb-8">
-                        A verification link has been sent to <br />
-                        <strong className="text-slate-800">{pendingEmail}</strong>.<br /><br />
-                        Please open your email and click the link to activate your account.
-                    </p>
-                    <div className="bg-slate-50 rounded-2xl p-4 text-left space-y-2 mb-8 border border-slate-100">
-                        <div className="flex items-start gap-3">
-                            <div className="w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span className="text-[9px] font-black text-indigo-600">1</span>
-                            </div>
-                            <span className="text-xs text-slate-600 font-medium">Open your inbox for <strong>{pendingEmail}</strong></span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                            <div className="w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span className="text-[9px] font-black text-indigo-600">2</span>
-                            </div>
-                            <span className="text-xs text-slate-600 font-medium">Click the verification link in the email</span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                            <div className="w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span className="text-[9px] font-black text-indigo-600">3</span>
-                            </div>
-                            <span className="text-xs text-slate-600 font-medium">Your account will be activated and you can log in</span>
-                        </div>
-                    </div>
-
-                    {/* Development Mode Helper */}
-                    {import.meta.env.MODE === 'development' && (
-                        <div className="mb-8 p-4 bg-amber-50 border border-amber-100 rounded-2xl text-left">
-                            <div className="flex items-center gap-2 mb-2">
-                                <AlertCircle size={14} className="text-amber-600" />
-                                <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider">Developer Sandbox</span>
-                            </div>
-                            <p className="text-[11px] text-amber-700 leading-relaxed mb-3">
-                                Since you are in development mode and using Ethereal (test emails), you can skip the inbox and use the link below:
-                            </p>
-                            <button
-                                onClick={() => navigate('/login')}
-                                className="text-[10px] font-black text-indigo-600 underline hover:text-indigo-800 break-all"
-                            >
-                                [ Note: Verification links are printed to the SERVER console. Check your terminal for the Preview URL! ]
-                            </button>
-                        </div>
-                    )}
-
-                    <Link
-                        to="/login"
-                        className="block w-full bg-[#0F172A] text-white py-3.5 rounded-xl font-black text-[10px] uppercase tracking-[.2em] hover:bg-slate-800 transition-all text-center"
-                    >
-                        Go to Login
-                    </Link>
-                    <p className="text-xs text-slate-400 mt-4">
-                        Didn't receive the email?{' '}
-                        <button
-                            onClick={handleAccept}
-                            className="text-indigo-600 font-bold hover:underline"
-                        >
-                            Resend
-                        </button>
-                    </p>
-                </div>
-            </div>
-        )
     }
 
     return (

@@ -58,7 +58,7 @@ const Auth = () => {
         } catch (err) {
             const msg = err.response?.data?.message || 'Login failed'
             if (err.response?.data?.requiresVerification) {
-                navigate('/verify-pending', { state: { email: err.response.data.email } })
+                navigate('/verify-pending?email=' + encodeURIComponent(err.response.data.email))
             } else {
                 setError(msg)
             }
@@ -333,28 +333,6 @@ const Auth = () => {
                                             {showConfirmPwd ? <EyeOff size={12} /> : <Eye size={12} />}
                                         </button>
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Profile Selector */}
-                            <div className="space-y-0.5">
-                                <span className={labelCls}>Profile <span className="text-red-400">*</span></span>
-                                <div className="relative flex bg-slate-50 p-1 rounded-xl border border-slate-100">
-                                    <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-[#0F172A] rounded-lg transition-all duration-300 ease-out z-0 ${formData.profile === 'academy' ? 'translate-x-full' : 'translate-x-0'}`} />
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, profile: 'aspirant', role: 'candidate' })}
-                                        className={`relative flex-1 py-2 text-[9px] font-black uppercase tracking-widest z-10 transition-colors ${formData.profile === 'aspirant' ? 'text-white' : 'text-slate-400'}`}
-                                    >
-                                        Aspirant
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, profile: 'academy', role: 'creator' })}
-                                        className={`relative flex-1 py-2 text-[9px] font-black uppercase tracking-widest z-10 transition-colors ${formData.profile === 'academy' ? 'text-white' : 'text-slate-400'}`}
-                                    >
-                                        Academy
-                                    </button>
                                 </div>
                             </div>
 

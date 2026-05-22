@@ -77,6 +77,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const sendOtp = async (email) => {
+    const res = await axios.post(`${API}/auth/send-otp`, { email });
+    return res.data;
+  };
+
+  const verifyOtp = async (email, otp) => {
+    const res = await axios.post(`${API}/auth/verify-otp`, { email, otp });
+    return res.data;
+  };
+
   const resendVerification = async (email) => {
     const res = await axios.post(`${API}/auth/resend-verification`, { email });
     return res.data;
@@ -109,7 +119,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, loginWithGoogle, resendVerification, switchRole, updateProfile, loading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, loginWithGoogle, sendOtp, verifyOtp, resendVerification, switchRole, updateProfile, loading }}>
       {children}
     </AuthContext.Provider>
   );

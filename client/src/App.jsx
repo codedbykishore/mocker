@@ -18,7 +18,8 @@ import DebugOMR from './pages/DebugOMR'
 
 // Auth flow pages
 import PrivacyPolicy from './pages/PrivacyPolicy'
-import EmailVerification from './pages/EmailVerification'
+import VerifyOtp from './pages/VerifyOtp'
+import VerifyPending from './pages/VerifyPending'
 import ForgotPassword from './pages/ForgotPassword'
 import ForgotUsername from './pages/ForgotUsername'
 import ResetPassword from './pages/ResetPassword'
@@ -41,7 +42,8 @@ function App() {
 
           {/* Registration flow */}
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/verify-email" element={<EmailVerification />} />
+          <Route path="/verify-otp" element={<VerifyOtp />} />
+          <Route path="/verify-pending" element={<VerifyPending />} />
 
           {/* Forgot credentials */}
           <Route path="/forgot-password" element={<ForgotPassword />} />

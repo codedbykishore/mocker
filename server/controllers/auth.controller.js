@@ -64,52 +64,60 @@ const updateUser = async (id, data) => {
 };
 
 // ─── Email Transporter ───────────────────────────────────────────────────────
-// Uses Ethereal (test) or configured SMTP. Falls back gracefully.
-const createTransporter = () => {
-  if (process.env.SMTP_HOST) {
-    return nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    });
-  }
-  // Fallback: Ethereal (dev only) — logs preview URL to console
-  return null;
-};
-
+// Uses configured SMTP. Returns error if email fails.
 const sendEmail = async (to, subject, html) => {
+  if (!process.env.SMTP_HOST) {
+    console.error('Email not sent: SMTP_HOST not configured');
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+
   try {
-    let transporter = createTransporter();
-    if (!transporter) {
-      // Create Ethereal test account on the fly
-      const testAccount = await nodemailer.createTestAccount();
-      transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        secure: false,
-        auth: { user: testAccount.user, pass: testAccount.pass },
-      });
-    }
-
-    const info = await transporter.sendMail({
+    await transporter.sendMail({
       from: process.env.SMTP_FROM || '"Mocker Platform" <noreply@mocker.com>',
-      to,
-      subject,
-      html,
+      to, subject, html,
     });
-
-    // Log preview URL for Ethereal accounts
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    if (previewUrl) {
-      console.log('📧 Email Preview URL:', previewUrl);
-    }
     return true;
   } catch (err) {
     console.error('Email send error:', err.message);
     return false;
   }
 };
+
+// ─── OTP Helpers ────────────────────────────────────────────────────────────
+const OTP_LENGTH = parseInt(process.env.OTP_LENGTH) || 6;
+const OTP_EXPIRY = parseInt(process.env.OTP_EXPIRY) || 600;
+const OTP_MAX_ATTEMPTS = parseInt(process.env.OTP_MAX_ATTEMPTS) || 3;
+const OTP_COOLDOWN = parseInt(process.env.OTP_COOLDOWN) || 60;
+
+const generateOtp = () => {
+  const plain = String(crypto.randomInt(100000, 999999));
+  const hashed = bcrypt.hashSync(plain, 10);
+  return { plain, hashed };
+};
+
+const getOtpEmailTemplate = (otp, name) => `
+  <div style="font-family: 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
+    <div style="background: #0F172A; padding: 32px; text-align: center;">
+      <h1 style="color: #fff; margin: 0; font-size: 24px; letter-spacing: -0.5px;">MOCKER</h1>
+      <p style="color: #64748B; margin: 8px 0 0; font-size: 13px;">Exam Proctoring Platform</p>
+    </div>
+    <div style="padding: 40px 32px; text-align: center;">
+      <h2 style="color: #0F172A; margin: 0 0 12px; font-size: 20px;">Verify Your Email</h2>
+      <p style="color: #64748B; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
+        Hi <strong>${name}</strong>, use the code below to verify your email address.
+      </p>
+      <div style="background: #F8FAFC; border: 2px dashed #E2E8F0; border-radius: 12px; padding: 24px 16px; margin: 0 0 24px; letter-spacing: 12px; font-size: 36px; font-weight: 900; color: #0F172A;">${otp}</div>
+      <p style="color: #94A3B8; font-size: 12px; margin: 0;">This code expires in 10 minutes. If you didn't create an account, ignore this email.</p>
+    </div>
+  </div>
+`;
 
 // ─── REGISTER ────────────────────────────────────────────────────────────────
 const register = async (req, res) => {
@@ -129,8 +137,6 @@ const register = async (req, res) => {
     if (existingUser) return res.status(400).json({ message: 'Username already taken' });
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24h
 
     const userData = {
       username,
@@ -141,49 +147,40 @@ const register = async (req, res) => {
       profile: profile || 'aspirant',
       role: role || 'candidate',
       isVerified: false,
-      verificationToken,
-      verificationExpires,
       createdAt: new Date().toISOString(),
     };
 
     const user = await addUser(userData);
 
-    // Send verification email
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const verifyLink = `${clientUrl}/verify-email?token=${verificationToken}&id=${user.id}`;
+    const { plain, hashed } = generateOtp();
+    await updateUser(user.id, {
+      otpCode: hashed,
+      otpExpires: new Date(Date.now() + OTP_EXPIRY * 1000).toISOString(),
+      otpAttempts: 0,
+      lastOtpSentAt: new Date().toISOString(),
+    });
 
-    const emailHtml = `
-      <div style="font-family: 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
-        <div style="background: #0F172A; padding: 32px; text-align: center;">
-          <h1 style="color: #fff; margin: 0; font-size: 24px; letter-spacing: -0.5px;">MOCKER</h1>
-          <p style="color: #64748B; margin: 8px 0 0; font-size: 13px;">Exam Proctoring Platform</p>
-        </div>
-        <div style="padding: 40px 32px;">
-          <h2 style="color: #0F172A; margin: 0 0 12px; font-size: 20px;">Verify Your Email Address</h2>
-          <p style="color: #64748B; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
-            Hi <strong>${name || username}</strong>, welcome to Mocker! Please click the button below to verify your email address and activate your account.
-          </p>
-          <a href="${verifyLink}" style="display: inline-block; background: #0F172A; color: #fff; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase;">
-            Verify My Email
-          </a>
-          <p style="color: #94A3B8; font-size: 12px; margin: 24px 0 0;">
-            This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
-          </p>
-        </div>
-      </div>
-    `;
+    const otpEmailHtml = getOtpEmailTemplate(plain, name || username);
+    const emailSent = await sendEmail(email, 'Your Mocker OTP Code', otpEmailHtml);
 
-    await sendEmail(email, 'Verify your Mocker account', emailHtml);
-    
     console.log('\n--- DEVELOPMENT AUTH HELPER ---');
     console.log('User:', username);
-    console.log('Activation Link:', verifyLink);
+    console.log('OTP Code:', plain);
     console.log('-------------------------------\n');
 
+    if (!emailSent) {
+      return res.status(500).json({
+        message: 'Registration succeeded but email could not be sent. Check your SMTP settings.',
+        error: 'EMAIL_FAILED',
+        email,
+      });
+    }
+
     res.status(201).json({
-      message: 'Registration successful. Please check your email to verify your account.',
+      message: 'Registration successful. Please check your email for the OTP code.',
       requiresVerification: true,
       email,
+      otpSent: true,
     });
   } catch (err) {
     console.error('Register error:', err);
@@ -203,76 +200,92 @@ const getUserById = async (id) => {
   return mockUsers.find(u => u.id === id) || null;
 };
 
-// ─── VERIFY EMAIL ─────────────────────────────────────────────────────────────
-const verifyEmail = async (req, res) => {
-  const { token, id } = req.query;
 
-  if (!token || !id) return res.status(400).json({ message: 'Invalid verification link' });
 
-  try {
-    const user = await getUserById(id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    if (user.isVerified) return res.status(200).json({ message: 'Email already verified', alreadyVerified: true });
-    if (user.verificationToken !== token) return res.status(400).json({ message: 'Invalid verification token' });
-    if (new Date(user.verificationExpires) < new Date()) {
-      return res.status(400).json({ message: 'Verification link has expired. Please register again.' });
-    }
-
-    await updateUser(id, {
-      isVerified: true,
-      verificationToken: null,
-      verificationExpires: null,
-    });
-
-    res.status(200).json({ message: 'Email verified successfully! You can now log in.', verified: true });
-  } catch (err) {
-    console.error('verifyEmail error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
+// ─── RESEND VERIFICATION / SEND OTP ─────────────────────────────────────────
+const resendVerification = async (req, res) => {
+  return sendOtp(req, res);
 };
 
-// ─── RESEND VERIFICATION ──────────────────────────────────────────────────────
-const resendVerification = async (req, res) => {
+const sendOtp = async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: 'Email is required' });
 
   try {
     const user = await findUserByField('email', email);
     if (!user) return res.status(404).json({ message: 'No account found with this email' });
+    if (user.isVerified) return res.status(400).json({ message: 'Email is already verified', alreadyVerified: true });
 
-    if (user.isVerified) return res.status(400).json({ message: 'Email is already verified' });
+    if (user.lastOtpSentAt) {
+      const elapsed = (Date.now() - new Date(user.lastOtpSentAt).getTime()) / 1000;
+      if (elapsed < OTP_COOLDOWN) {
+        const wait = Math.ceil(OTP_COOLDOWN - elapsed);
+        return res.status(429).json({ message: `Please wait ${wait}s before requesting a new code`, wait });
+      }
+    }
 
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const { plain, hashed } = generateOtp();
+    await updateUser(user.id, {
+      otpCode: hashed,
+      otpExpires: new Date(Date.now() + OTP_EXPIRY * 1000).toISOString(),
+      otpAttempts: 0,
+      lastOtpSentAt: new Date().toISOString(),
+    });
 
-    await updateUser(user.id, { verificationToken, verificationExpires });
+    const otpEmailHtml = getOtpEmailTemplate(plain, user.name || user.username);
+    await sendEmail(email, 'Your Mocker OTP Code', otpEmailHtml);
 
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const verifyLink = `${clientUrl}/verify-email?token=${verificationToken}&id=${user.id}`;
+    console.log('\n--- DEVELOPMENT AUTH HELPER ---');
+    console.log('User:', user.username);
+    console.log('OTP Code:', plain);
+    console.log('-------------------------------\n');
 
-    const emailHtml = `
-      <div style="font-family: 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
-        <div style="background: #0F172A; padding: 32px; text-align: center;">
-          <h1 style="color: #fff; margin: 0; font-size: 24px;">MOCKER</h1>
-        </div>
-        <div style="padding: 40px 32px;">
-          <h2 style="color: #0F172A; margin: 0 0 12px;">New Verification Link</h2>
-          <p style="color: #64748B; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
-            Here's a fresh verification link for your Mocker account.
-          </p>
-          <a href="${verifyLink}" style="display: inline-block; background: #0F172A; color: #fff; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase;">
-            Verify My Email
-          </a>
-          <p style="color: #94A3B8; font-size: 12px; margin: 24px 0 0;">Expires in 24 hours.</p>
-        </div>
-      </div>
-    `;
-
-    await sendEmail(email, 'New verification link — Mocker', emailHtml);
-    res.status(200).json({ message: 'Verification email sent' });
+    res.status(200).json({ message: 'OTP sent successfully', expiresIn: OTP_EXPIRY });
   } catch (err) {
-    console.error('resendVerification error:', err);
+    console.error('sendOtp error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+const verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ message: 'Email and OTP are required' });
+
+  try {
+    const user = await findUserByField('email', email);
+    if (!user) return res.status(404).json({ message: 'No account found with this email' });
+    if (user.isVerified) return res.status(200).json({ message: 'Email already verified', verified: true, alreadyVerified: true });
+
+    if (!user.otpCode || !user.otpExpires) {
+      return res.status(400).json({ message: 'No OTP requested. Please request a new code.' });
+    }
+
+    if (new Date(user.otpExpires) < new Date()) {
+      return res.status(400).json({ message: 'OTP has expired. Please request a new code.', expired: true });
+    }
+
+    if (user.otpAttempts >= OTP_MAX_ATTEMPTS) {
+      return res.status(400).json({ message: 'Too many failed attempts. Please request a new code.', maxAttempts: true });
+    }
+
+    const isValid = bcrypt.compareSync(otp, user.otpCode);
+    if (!isValid) {
+      const remaining = OTP_MAX_ATTEMPTS - (user.otpAttempts + 1);
+      await updateUser(user.id, { otpAttempts: (user.otpAttempts || 0) + 1 });
+      return res.status(400).json({ message: `Invalid OTP. ${remaining} attempt(s) remaining.`, remaining });
+    }
+
+    await updateUser(user.id, {
+      isVerified: true,
+      otpCode: null,
+      otpExpires: null,
+      otpAttempts: null,
+      lastOtpSentAt: null,
+    });
+
+    res.status(200).json({ message: 'Email verified successfully!', verified: true });
+  } catch (err) {
+    console.error('verifyOtp error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
@@ -314,9 +327,9 @@ const login = async (req, res) => {
     // Mock Fallback for Demo Accounts
     if (!user && password === 'password123') {
       if (identifier === 'admin@mocker.com' || identifier === 'admin') {
-        user = { _id: 'mock-admin', name: 'Demo Creator', username: 'admin', email: 'admin@mocker.com', role: 'creator', isVerified: true };
+        user = { _id: 'mock-admin', name: 'Demo Creator', username: 'admin', email: 'admin@mocker.com', role: 'creator', profile: 'academy', isVerified: true };
       } else if (identifier === 'student@mocker.com' || identifier === 'student') {
-        user = { _id: 'mock-student', name: 'Demo Candidate', username: 'student', email: 'student@mocker.com', role: 'candidate', isVerified: true };
+        user = { _id: 'mock-student', name: 'Demo Candidate', username: 'student', email: 'student@mocker.com', role: 'candidate', profile: 'aspirant', isVerified: true };
       }
     }
 
@@ -463,7 +476,7 @@ const getMe = async (req, res) => {
         username: isCreator ? 'admin' : 'student',
         email: isCreator ? 'admin@mocker.com' : 'student@mocker.com',
         role: req.user.role,
-        profile: 'aspirant',
+        profile: isCreator ? 'academy' : 'aspirant',
       });
     }
     const userDoc = await usersCollection.doc(req.user.id).get();
@@ -473,6 +486,10 @@ const getMe = async (req, res) => {
     delete user.password;
     delete user.verificationToken;
     delete user.resetToken;
+    delete user.otpCode;
+    delete user.otpExpires;
+    delete user.otpAttempts;
+    delete user.lastOtpSentAt;
     res.status(200).json({ _id: userDoc.id, ...user });
   } catch (err) {
     console.error('getMe error:', err);
@@ -497,7 +514,7 @@ const googleAuth = async (req, res) => {
         const userDoc = querySnapshot.docs[0];
         userId = userDoc.id;
         const data = userDoc.data();
-        userData = { _id: userId, name: data.name || name, username: data.username || email.split('@')[0], email: data.email || email, role: data.role || 'candidate' };
+        userData = { _id: userId, name: data.name || name, username: data.username || email.split('@')[0], email: data.email || email, role: data.role || 'candidate', profile: data.profile || 'aspirant' };
       } else {
         const dummyPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
         const newRole = role || 'candidate';
@@ -514,12 +531,13 @@ const googleAuth = async (req, res) => {
           createdAt: new Date().toISOString(),
         });
         userId = userDoc.id;
-        userData = { _id: userId, name, username, email, role: newRole };
+        userData = { _id: userId, name, username, email, role: newRole, profile: 'aspirant' };
       }
     } catch (dbError) {
       console.warn('--- GOOGLE AUTH: DB unavailable, using MOCK MODE ---');
       userId = `mock-google-${email.split('@')[0]}`;
-      userData = { _id: userId, name: name || 'Demo User', username: email.split('@')[0], email, role: role || 'candidate' };
+      const mockProfile = role === 'creator' ? 'academy' : 'aspirant';
+      userData = { _id: userId, name: name || 'Demo User', username: email.split('@')[0], email, role: role || 'candidate', profile: mockProfile };
     }
 
     const token = jwt.sign(
@@ -572,4 +590,4 @@ const updateProfile = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe, googleAuth, updateRole, updateProfile, verifyEmail, resendVerification, forgotPassword, resetPassword, forgotUsername };
+module.exports = { register, login, getMe, googleAuth, updateRole, updateProfile, resendVerification, sendOtp, verifyOtp, forgotPassword, resetPassword, forgotUsername };

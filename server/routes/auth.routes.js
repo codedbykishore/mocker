@@ -6,8 +6,9 @@ const {
   getMe,
   googleAuth,
   updateRole,
-  verifyEmail,
   resendVerification,
+  sendOtp,
+  verifyOtp,
   forgotPassword,
   resetPassword,
   forgotUsername,
@@ -22,8 +23,9 @@ router.get('/me', protect, getMe);
 router.post('/update-role', protect, updateRole);
 router.post('/update-profile', protect, updateProfile);
 
-// Email verification
-router.get('/verify-email', verifyEmail);
+// OTP verification
+router.post('/send-otp', sendOtp);
+router.post('/verify-otp', verifyOtp);
 router.post('/resend-verification', resendVerification);
 
 // Forgot credentials
